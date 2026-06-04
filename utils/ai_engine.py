@@ -1,77 +1,96 @@
-import os
 from openai import OpenAI
-from dotenv import load_dotenv
+import re
 
-load_dotenv()
+CLIENT = OpenAI(
+    base_url="https://api.gapgpt.app/v1",
+    api_key="sk-lsqomcqCn8BwbZAerTE4o9JKwuFXKXwBYCtb0Rz8UosfZumV"
+)
+MODEL_NAME = "gpt-4o"
 
-# تنظیمات کلاینت
-API_KEY = os.getenv("sk-ocTcJv4Do6xWp5BItyoiAUmrFWoVJx6KCsP0JvkPEQaMRrK8")
-MODEL_NAME = "gpt-4o-mini" # استفاده از این مدل برای Context بالاتر و هزینه کمتر
-CLIENT = OpenAI(api_key=API_KEY)
 
-def find_relevant_chunks(text, query, num_chunks=5):
-    """
-    پیدا کردن بخش‌های مرتبط از متن ۱۰۰ صفحه‌ای بر اساس سوال کاربر
-    """
-    if not text:
-        return ""
-    
-    # تقسیم متن به تکه‌های ۲۰۰۰ کاراکتری (حدود ۲-۳ صفحه در هر تکه)
-    chunks = [text[i:i+2000] for i in range(0, len(text), 2000)]
-    
-    # یک جستجوی ساده برای پیدا کردن تکه‌هایی که کلمات کلیدی سوال را دارند
-    query_words = query.lower().split()
-    chunk_scores = []
-    
-    for chunk in chunks:
-        score = sum(1 for word in query_words if word in chunk.lower())
-        chunk_scores.append((score, chunk))
-    
-    # مرتب‌سازی بر اساس امتیاز و انتخاب بهترین تکه‌ها
-    relevant_chunks = sorted(chunk_scores, key=lambda x: x[0], reverse=True)[:num_chunks]
-    
-    return "\n---\n".join([c[1] for c in relevant_chunks])
+def normalize_text(text: str) -> str:
+    text = (text or "").lower()
+    text = text.replace("ي", "ی").replace("ك", "ک")
+    text = re.sub(r"[^\w\s\u0600-\u06FF]", " ", text)
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
 
-def generate_chat_response(messages, pdf_text=""):
-    if not messages:
-        return "سوالی دریافت نشد."
 
+def chunk_text(text: str, chunk_size=1800, overlap=250):
+    chunks = []
+    i = 0
+    n = len(text)
+    while i < n:
+        chunks.append(text[i:i + chunk_size])
+        i += max(1, chunk_size - overlap)
+    return chunks
+
+
+def score_chunk(chunk: str, query: str) -> int:
+    c = normalize_text(chunk)
+    q = normalize_text(query)
+
+    words = [w for w in q.split() if len(w) >= 2]
+    score = 0
+    for w in words:
+        score += c.count(w)
+    return score
+
+
+def retrieve_relevant(document_text: str, query: str, top_k=4) -> str:
+    chunks = chunk_text(document_text, chunk_size=1800, overlap=250)
+    scored = [(score_chunk(ch, query), ch) for ch in chunks]
+    scored.sort(key=lambda x: x[0], reverse=True)
+
+    picked = [ch for sc, ch in scored[:top_k] if sc > 0]
+    if not picked:
+        picked = chunks[:2]  # fallback
+    return "\n\n".join(picked)
+
+
+def generate_chat_response(messages, document_text: str):
     user_query = messages[-1]["content"]
-    
-    # ۱. اگر متن طولانی است، فقط بخش‌های مرتبط را استخراج کن
-    if pdf_text and len(pdf_text) > 20000:
-        with_context = True
-        context_text = find_relevant_chunks(pdf_text, user_query)
-    else:
-        with_context = True if pdf_text else False
-        context_text = pdf_text
+    relevant_text = retrieve_relevant(document_text, user_query, top_k=4)
 
-    # ۲. ساخت پیام سیستم
     system_instruction = (
-        "شما یک دستیار پژوهشی هستید. با توجه به بخش‌های استخراج شده از یک فایل طولانی، "
-        "به سوال کاربر پاسخ دهید. اگر پاسخ در این بخش‌ها نیست، بر اساس دانش خود راهنمایی کنید "
-        "و بگویید که در مستندات صریحاً پیدا نشد."
+        "شما یک دستیار آموزشی خیلی دقیق و حرفه‌ای هستید.\n"
+        "قانون اصلی: فقط بر اساس «متن مرجع مرتبط» پاسخ بده.\n"
+        "اگر پاسخ در متن مرجع نیست، دقیقاً بنویس: «این پاسخ به‌صورت مستقیم در فایل ارسالی یافت نشد.»\n"
+        "پاسخ‌ها باید فارسی، ساخت‌یافته و قابل ارائه به استاد باشند.\n"
+        "در صورت امکان: تعریف کوتاه + توضیح + مثال از متن.\n"
     )
 
-    api_messages = [{"role": "system", "content": system_instruction}]
-    
-    if with_context:
-        api_messages.append({"role": "system", "content": f"Context from PDF:\n{context_text}"})
+    # فقط پیام‌های آخر برای کنترل هزینه/کیفیت
+    recent = messages[-8:] if len(messages) > 8 else messages
 
-    # ۳. اضافه کردن تاریخچه چت (۳ پیام آخر)
-    for msg in messages[-3:]:
-        api_messages.append({"role": msg["role"], "content": msg["content"]})
+    api_messages = [
+        {"role": "system", "content": system_instruction},
+        {"role": "system", "content": f"متن مرجع مرتبط:\n{relevant_text}"},
+        *recent
+    ]
 
+    resp = CLIENT.chat.completions.create(
+        model=MODEL_NAME,
+        messages=api_messages,
+        temperature=0.2
+    )
+    return resp.choices[0].message.content
+
+
+def extract_important_sentences(document_text: str):
+    short_text = (document_text or "")[:6000]
+    prompt = (
+        "از متن زیر 5 نکته خیلی مهم (برای ارائه/امتحان) استخراج کن.\n"
+        "خروجی باید فارسی و شماره‌دار باشد.\n\n"
+        f"{short_text}"
+    )
     try:
-        # ۴. ارسال به API با زمان انتظار بالا
         resp = CLIENT.chat.completions.create(
             model=MODEL_NAME,
-            messages=api_messages,
-            temperature=0.3,
-            timeout=80.0
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3
         )
-        return resp.choices[0].message.content
-    except Exception as e:
-        if "timeout" in str(e).lower():
-            return "⚠️ پردازش فایل طولانی است. لطفا سوال دقیق‌تری بپرسید تا جستجو بهتر انجام شود."
-        return f"❌ خطا: {str(e)}"
+        lines = [l.strip() for l in resp.choices[0].message.content.split("\n") if l.strip()]
+        return lines[:5]
+    except Exception:
+        return []
