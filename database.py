@@ -19,28 +19,24 @@ def ensure_column_exists(conn, table_name, column_name, column_def):
         conn.commit()
 
 def init_db():
-    conn = get_db()
+    conn = sqlite3.connect('users.db')
     c = conn.cursor()
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        username TEXT PRIMARY KEY, password TEXT NOT NULL, name TEXT NOT NULL,
-        email TEXT, role TEXT NOT NULL DEFAULT 'user', created_at TEXT,
-        question_count INTEGER DEFAULT 0, status TEXT DEFAULT 'فعال'
-    )""")
-    c.execute("""CREATE TABLE IF NOT EXISTS questions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT NOT NULL, 
-        question TEXT NOT NULL, created_at TEXT NOT NULL, doc_chars INTEGER DEFAULT 0
-    )""")
-    ensure_column_exists(conn, "users", "status", "TEXT DEFAULT 'فعال'")
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (username TEXT PRIMARY KEY, password TEXT, name TEXT, email TEXT, role TEXT, created_at TEXT, status TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS questions
+                 (username TEXT, question TEXT, answer TEXT, timestamp TEXT)''')
     
+    # بررسی اینکه آیا ادمین از قبل وجود دارد یا خیر
     admin_username = "admin"
-    c.execute("SELECT username FROM users WHERE username = ?", (admin_username,))
+    c.execute("SELECT * FROM users WHERE username=?", (admin_username,))
     if not c.fetchone():
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         c.execute("INSERT INTO users (username, password, name, email, role, created_at, status) VALUES (?,?,?,?,?,?,?)",
-                  (admin_username, hash_password("123456"), "مدیر سیستم", "admin@site.com", "admin", now, 'فعال'))
+                  (admin_username, hash_password("admin123"), "مدیر سیستم", "admin@site.com", "admin", now, 'فعال'))
+    
     conn.commit()
     conn.close()
+
 
 def verify_user(username, password):
     conn = get_db()
