@@ -148,3 +148,26 @@ def get_today_question_count(username):
     count = c.fetchone()[0]
     conn.close()
     return count
+def register_user(username, password, name, email):
+    conn = get_db()
+    c = conn.cursor()
+    
+    # بررسی تکراری نبودن نام کاربری
+    c.execute("SELECT username FROM users WHERE username = ?", (username,))
+    if c.fetchone():
+        conn.close()
+        return False, "این نام کاربری قبلاً ثبت شده است."
+    
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hashed_pw = hash_password(password)
+        c.execute("""
+            INSERT INTO users (username, password, name, email, role, created_at, question_count, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (username, hashed_pw, name, email, 'user', now, 0, 'فعال'))
+        conn.commit()
+        conn.close()
+        return True, "کاربر با موفقیت ثبت نام شد."
+    except Exception as e:
+        conn.close()
+        return False, f"خطایی رخ داد: {str(e)}"
