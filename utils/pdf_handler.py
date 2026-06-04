@@ -7,7 +7,7 @@ def extract_text_from_pdfs(uploaded_files):
     for uploaded_file in uploaded_files:
         file_names.append(uploaded_file.name)
         try:
-            # ۱. بازگرداندن نشانگر فایل به ابتدا برای اطمینان از خواندن کامل
+            # بازگرداندن نشانگر فایل به ابتدا برای اطمینان از خواندن کامل
             uploaded_file.seek(0)
             pdf_bytes = uploaded_file.read()
             
@@ -16,7 +16,7 @@ def extract_text_from_pdfs(uploaded_files):
             full_text += f"\n\n===== شروع فایل: {uploaded_file.name} =====\n\n"
 
             for page_num, page in enumerate(doc, start=1):
-                # ۲. استفاده از پارامتر "text" با چیدمان هوشمند برای جلوگیری از به‌هم‌ریختگی فارسی
+                # استخراج متن با چیدمان هوشمند
                 text = page.get_text("text", sort=True) 
                 if text and text.strip():
                     full_text += f"\n--- صفحه {page_num} ---\n{text}\n"
@@ -27,4 +27,5 @@ def extract_text_from_pdfs(uploaded_files):
         except Exception as e:
             full_text += f"\n[خطا در خواندن فایل {uploaded_file.name}: {str(e)}]\n"
     
-    return full_text # این خط در کد شما جا افتاده بود که اضافه کردم
+    # خروجی دو مقداری برای هماهنگی با خط 154 فایل main.py
+    return full_text, file_names
