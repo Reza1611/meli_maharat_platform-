@@ -1,11 +1,20 @@
-from openai import OpenAI
+import os
 import re
+from openai import OpenAI
+import streamlit as st
 
+# تنظیم کلید به صورت مستقیم (طبق درخواست شما)
+# هشدار: بهتر است در آینده این را در Secrets بگذارید
+GOOGLE_API_KEY = "AQ.Ab8RN6IdAsjPmdTyEkWtQPHAYVwVEJYCcj8ir4RkZVilr11bDQ"
+
+# تنظیم کلاینت برای اتصال به گوگل از طریق پروتکل OpenAI
 CLIENT = OpenAI(
-    base_url="https://api.gapgpt.app/v1",
-    api_key="sk-PtQ1lCzD6mxanRITn2dR4kXqGKLS4hmDEybQ4IDMFqiSFy8z"
+    api_key=GOOGLE_API_KEY,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
 )
-MODEL_NAME = "gpt-4o"
+
+# نام مدل برای گوگل جمینای
+MODEL_NAME = "gemini-1.5-flash"
 
 
 def normalize_text(text: str) -> str:
@@ -29,7 +38,6 @@ def chunk_text(text: str, chunk_size=1800, overlap=250):
 def score_chunk(chunk: str, query: str) -> int:
     c = normalize_text(chunk)
     q = normalize_text(query)
-
     words = [w for w in q.split() if len(w) >= 2]
     score = 0
     for w in words:
@@ -41,10 +49,9 @@ def retrieve_relevant(document_text: str, query: str, top_k=4) -> str:
     chunks = chunk_text(document_text, chunk_size=1800, overlap=250)
     scored = [(score_chunk(ch, query), ch) for ch in chunks]
     scored.sort(key=lambda x: x[0], reverse=True)
-
     picked = [ch for sc, ch in scored[:top_k] if sc > 0]
     if not picked:
-        picked = chunks[:2]  # fallback
+        picked = chunks[:2]
     return "\n\n".join(picked)
 
 
@@ -55,12 +62,10 @@ def generate_chat_response(messages, document_text: str):
     system_instruction = (
         "شما یک دستیار آموزشی خیلی دقیق و حرفه‌ای هستید.\n"
         "قانون اصلی: فقط بر اساس «متن مرجع مرتبط» پاسخ بده.\n"
-        "اگر پاسخ در متن مرجع نیست، دقیقاً بنویس: «این پاسخ به‌صورت مستقیم در فایل ارسالی یافت نشد.»\n"
-        "پاسخ‌ها باید فارسی، ساخت‌یافته و قابل ارائه به استاد باشند.\n"
-        "در صورت امکان: تعریف کوتاه + توضیح + مثال از متن.\n"
+        "اگر پاسخ در متن مرجع نیست، بنویس: «این پاسخ به‌صورت مستقیم در فایل یافت نشد.»\n"
+        "پاسخ‌ها فارسی و ساخت‌یافته باشند."
     )
 
-    # فقط پیام‌های آخر برای کنترل هزینه/کیفیت
     recent = messages[-8:] if len(messages) > 8 else messages
 
     api_messages = [
@@ -69,18 +74,21 @@ def generate_chat_response(messages, document_text: str):
         *recent
     ]
 
-    resp = CLIENT.chat.completions.create(
-        model=MODEL_NAME,
-        messages=api_messages,
-        temperature=0.2
-    )
-    return resp.choices[0].message.content
+    try:
+        resp = CLIENT.chat.completions.create(
+            model=MODEL_NAME,
+            messages=api_messages,
+            temperature=0.2
+        )
+        return resp.choices[0].message.content
+    except Exception as e:
+        return f"❌ خطای API: {str(e)}"
 
 
 def extract_important_sentences(document_text: str):
     short_text = (document_text or "")[:6000]
     prompt = (
-        "از متن زیر 5 نکته خیلی مهم (برای ارائه/امتحان) استخراج کن.\n"
+        "از متن زیر 5 نکته خیلی مهم استخراج کن.\n"
         "خروجی باید فارسی و شماره‌دار باشد.\n\n"
         f"{short_text}"
     )
@@ -93,4 +101,4 @@ def extract_important_sentences(document_text: str):
         lines = [l.strip() for l in resp.choices[0].message.content.split("\n") if l.strip()]
         return lines[:5]
     except Exception:
-        return []
+        return ["نکته‌ای استخراج نشد."]
