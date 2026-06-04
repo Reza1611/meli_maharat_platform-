@@ -3,7 +3,7 @@ import re
 
 CLIENT = OpenAI(
     base_url="https://api.gapgpt.app/v1",
-    api_key="sk-lsqomcqCn8BwbZAerTE4o9JKwuFXKXwBYCtb0Rz8UosfZumV"
+    api_key="sk-PtQ1lCzD6mxanRITn2dR4kXqGKLS4hmDEybQ4IDMFqiSFy8z"
 )
 MODEL_NAME = "gpt-4o"
 
