@@ -7,17 +7,13 @@ def extract_text_from_pdfs(uploaded_files):
     for uploaded_file in uploaded_files:
         file_names.append(uploaded_file.name)
         try:
-            # بازگرداندن نشانگر فایل به ابتدا برای اطمینان از خواندن کامل
-            uploaded_file.seek(0)
             pdf_bytes = uploaded_file.read()
-            
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
 
             full_text += f"\n\n===== شروع فایل: {uploaded_file.name} =====\n\n"
 
             for page_num, page in enumerate(doc, start=1):
-                # استخراج متن با چیدمان هوشمند
-                text = page.get_text("text", sort=True) 
+                text = page.get_text("text")
                 if text and text.strip():
                     full_text += f"\n--- صفحه {page_num} ---\n{text}\n"
 
@@ -26,6 +22,5 @@ def extract_text_from_pdfs(uploaded_files):
 
         except Exception as e:
             full_text += f"\n[خطا در خواندن فایل {uploaded_file.name}: {str(e)}]\n"
-    
-    # خروجی دو مقداری برای هماهنگی با خط 154 فایل main.py
-    return full_text, file_names
+
+    return full_text.strip(), file_names
