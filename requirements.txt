@@ -1,4 +1,5 @@
 streamlit
 google-generativeai
 PyMuPDF
+PyPDF2
 pandas
