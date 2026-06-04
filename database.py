@@ -21,7 +21,6 @@ def ensure_column_exists(conn, table_name, column_name, column_def):
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    # ایجاد جدول کاربران
     c.execute("""
     CREATE TABLE IF NOT EXISTS users (
         username TEXT PRIMARY KEY, 
@@ -33,7 +32,6 @@ def init_db():
         question_count INTEGER DEFAULT 0, 
         status TEXT DEFAULT 'فعال'
     )""")
-    # ایجاد جدول سوالات
     c.execute("""
     CREATE TABLE IF NOT EXISTS questions (
         id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -42,11 +40,8 @@ def init_db():
         created_at TEXT NOT NULL, 
         doc_chars INTEGER DEFAULT 0
     )""")
-    
-    # اطمینان از وجود ستون status (برای آپدیت‌های احتمالی دیتابیس قدیمی)
     ensure_column_exists(conn, "users", "status", "TEXT DEFAULT 'فعال'")
     
-    # بررسی و ایجاد حساب کاربری ادمین (فقط در صورت عدم وجود)
     admin_username = "admin"
     c.execute("SELECT username FROM users WHERE username = ?", (admin_username,))
     if not c.fetchone():
@@ -55,9 +50,29 @@ def init_db():
             INSERT INTO users (username, password, name, email, role, created_at, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (admin_username, hash_password("123456"), "مدیر سیستم", "admin@site.com", "admin", now, 'فعال'))
-    
     conn.commit()
     conn.close()
+
+def register_user(username, password, name, email):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT username FROM users WHERE username = ?", (username,))
+    if c.fetchone():
+        conn.close()
+        return False, "این نام کاربری قبلاً ثبت شده است."
+    try:
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        hashed_pw = hash_password(password)
+        c.execute("""
+            INSERT INTO users (username, password, name, email, role, created_at, question_count, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (username, hashed_pw, name, email, 'user', now, 0, 'فعال'))
+        conn.commit()
+        conn.close()
+        return True, "کاربر با موفقیت ثبت نام شد."
+    except Exception as e:
+        conn.close()
+        return False, f"خطایی رخ داد: {str(e)}"
 
 def verify_user(username, password):
     conn = get_db()
@@ -65,13 +80,11 @@ def verify_user(username, password):
     hashed_password = hash_password(password)
     c.execute("""
         SELECT username, name, email, role, question_count, created_at, status 
-        FROM users 
-        WHERE username = ? AND password = ?
+        FROM users WHERE username = ? AND password = ?
     """, (username, hashed_password))
     row = c.fetchone()
     conn.close()
-    if not row: 
-        return False, None
+    if not row: return False, None
     return True, {
         "username": row[0], "name": row[1], "email": row[2], 
         "role": row[3], "question_count": row[4], "created_at": row[5], "status": row[6]
@@ -106,8 +119,7 @@ def add_question(username, question, doc_chars=0):
     conn.close()
 
 def delete_user(username):
-    if username == "admin": 
-        return False, "حذف ادمین مجاز نیست"
+    if username == "admin": return False, "حذف ادمین مجاز نیست"
     conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM questions WHERE username = ?", (username,))
@@ -119,16 +131,11 @@ def delete_user(username):
 def get_stats():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM users")
-    u_count = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM questions")
-    q_count = c.fetchone()[0]
-    
-    # پیدا کردن فعال‌ترین کاربر
+    c.execute("SELECT COUNT(*) FROM users"); u_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM questions"); q_count = c.fetchone()[0]
     c.execute("SELECT name FROM users ORDER BY question_count DESC LIMIT 1")
     top_user_row = c.fetchone()
     top_user = top_user_row[0] if top_user_row else "---"
-    
     conn.close()
     return {"users_count": u_count, "questions_count": q_count, "top_user": top_user}
 
@@ -148,26 +155,3 @@ def get_today_question_count(username):
     count = c.fetchone()[0]
     conn.close()
     return count
-def register_user(username, password, name, email):
-    conn = get_db()
-    c = conn.cursor()
-    
-    # بررسی تکراری نبودن نام کاربری
-    c.execute("SELECT username FROM users WHERE username = ?", (username,))
-    if c.fetchone():
-        conn.close()
-        return False, "این نام کاربری قبلاً ثبت شده است."
-    
-    try:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        hashed_pw = hash_password(password)
-        c.execute("""
-            INSERT INTO users (username, password, name, email, role, created_at, question_count, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (username, hashed_pw, name, email, 'user', now, 0, 'فعال'))
-        conn.commit()
-        conn.close()
-        return True, "کاربر با موفقیت ثبت نام شد."
-    except Exception as e:
-        conn.close()
-        return False, f"خطایی رخ داد: {str(e)}"
