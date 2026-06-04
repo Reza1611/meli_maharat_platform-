@@ -1,6 +1,6 @@
 import sqlite3
-from datetime import datetime
 import hashlib
+from datetime import datetime
 
 DB_NAME = "app_data.db"
 
@@ -19,34 +19,63 @@ def ensure_column_exists(conn, table_name, column_name, column_def):
         conn.commit()
 
 def init_db():
-    conn = sqlite3.connect('users.db')
+    conn = get_db()
     c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users
-                 (username TEXT PRIMARY KEY, password TEXT, name TEXT, email TEXT, role TEXT, created_at TEXT, status TEXT)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS questions
-                 (username TEXT, question TEXT, answer TEXT, timestamp TEXT)''')
+    # ایجاد جدول کاربران
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        username TEXT PRIMARY KEY, 
+        password TEXT NOT NULL, 
+        name TEXT NOT NULL,
+        email TEXT, 
+        role TEXT NOT NULL DEFAULT 'user', 
+        created_at TEXT,
+        question_count INTEGER DEFAULT 0, 
+        status TEXT DEFAULT 'فعال'
+    )""")
+    # ایجاد جدول سوالات
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS questions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        username TEXT NOT NULL, 
+        question TEXT NOT NULL, 
+        created_at TEXT NOT NULL, 
+        doc_chars INTEGER DEFAULT 0
+    )""")
     
-    # بررسی اینکه آیا ادمین از قبل وجود دارد یا خیر
+    # اطمینان از وجود ستون status (برای آپدیت‌های احتمالی دیتابیس قدیمی)
+    ensure_column_exists(conn, "users", "status", "TEXT DEFAULT 'فعال'")
+    
+    # بررسی و ایجاد حساب کاربری ادمین (فقط در صورت عدم وجود)
     admin_username = "admin"
-    c.execute("SELECT * FROM users WHERE username=?", (admin_username,))
+    c.execute("SELECT username FROM users WHERE username = ?", (admin_username,))
     if not c.fetchone():
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c.execute("INSERT INTO users (username, password, name, email, role, created_at, status) VALUES (?,?,?,?,?,?,?)",
-                  (admin_username, hash_password("admin123"), "مدیر سیستم", "admin@site.com", "admin", now, 'فعال'))
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        c.execute("""
+            INSERT INTO users (username, password, name, email, role, created_at, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (admin_username, hash_password("123456"), "مدیر سیستم", "admin@site.com", "admin", now, 'فعال'))
     
     conn.commit()
     conn.close()
-
 
 def verify_user(username, password):
     conn = get_db()
     c = conn.cursor()
     hashed_password = hash_password(password)
-    c.execute("SELECT username, name, email, role, question_count, created_at, status FROM users WHERE username = ? AND password = ?", (username, hashed_password))
+    c.execute("""
+        SELECT username, name, email, role, question_count, created_at, status 
+        FROM users 
+        WHERE username = ? AND password = ?
+    """, (username, hashed_password))
     row = c.fetchone()
     conn.close()
-    if not row: return False, None
-    return True, {"username": row[0], "name": row[1], "email": row[2], "role": row[3], "question_count": row[4], "created_at": row[5], "status": row[6]}
+    if not row: 
+        return False, None
+    return True, {
+        "username": row[0], "name": row[1], "email": row[2], 
+        "role": row[3], "question_count": row[4], "created_at": row[5], "status": row[6]
+    }
 
 def toggle_user_status(username):
     conn = get_db()
@@ -66,18 +95,19 @@ def get_all_users():
     conn.close()
     return rows
 
-# بقیه توابع شما (add_question, delete_user, get_stats) بدون تغییر باقی بماند
 def add_question(username, question, doc_chars=0):
     conn = get_db()
     c = conn.cursor()
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    c.execute("INSERT INTO questions (username, question, created_at, doc_chars) VALUES (?, ?, ?, ?)", (username, question, now, int(doc_chars or 0)))
+    c.execute("INSERT INTO questions (username, question, created_at, doc_chars) VALUES (?, ?, ?, ?)", 
+              (username, question, now, int(doc_chars or 0)))
     c.execute("UPDATE users SET question_count = COALESCE(question_count, 0) + 1 WHERE username = ?", (username,))
     conn.commit()
     conn.close()
 
 def delete_user(username):
-    if username == "admin": return False, "حذف ادمین مجاز نیست"
+    if username == "admin": 
+        return False, "حذف ادمین مجاز نیست"
     conn = get_db()
     c = conn.cursor()
     c.execute("DELETE FROM questions WHERE username = ?", (username,))
@@ -89,10 +119,18 @@ def delete_user(username):
 def get_stats():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM users"); u_count = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM questions"); q_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM users")
+    u_count = c.fetchone()[0]
+    c.execute("SELECT COUNT(*) FROM questions")
+    q_count = c.fetchone()[0]
+    
+    # پیدا کردن فعال‌ترین کاربر
+    c.execute("SELECT name FROM users ORDER BY question_count DESC LIMIT 1")
+    top_user_row = c.fetchone()
+    top_user = top_user_row[0] if top_user_row else "---"
+    
     conn.close()
-    return {"users_count": u_count, "questions_count": q_count}
+    return {"users_count": u_count, "questions_count": q_count, "top_user": top_user}
 
 def get_questions_for_user(username, limit=200):
     conn = get_db()
@@ -101,6 +139,7 @@ def get_questions_for_user(username, limit=200):
     rows = c.fetchall()
     conn.close()
     return rows
+
 def get_today_question_count(username):
     conn = get_db()
     c = conn.cursor()
