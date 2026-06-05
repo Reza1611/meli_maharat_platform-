@@ -11,7 +11,7 @@ MAX_QUESTIONS_PER_DAY = 20
 st.set_page_config(page_title="سامانه هوشمند دانشگاه ملی مهارت", page_icon="💎", layout="wide")
 db.init_db()
 
-# --- CSS فوق حرفه‌ای (دقیقا همان کدهای شما) ---
+# --- CSS کامل و فوق حرفه‌ای ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;700&display=swap');
@@ -19,6 +19,7 @@ st.markdown("""
     .stApp { background: #0f172a; color: #e2e8f0; }
     .block-container { padding-top: 3.5rem !important; padding-bottom: 2rem !important; }
     
+    /* نوار بالا */
     .top-bar {
         background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px);
         border: 1px solid rgba(255,255,255,0.1); border-radius: 15px;
@@ -27,6 +28,7 @@ st.markdown("""
     }
     .user-profile-section { display: flex; align-items: center; gap: 12px; margin-left: auto; direction: rtl; }
 
+    /* کانتینر اصلی چت و ابزارها */
     [data-testid="stVerticalBlockBorderWrapper"] {
         background: rgba(255, 255, 255, 0.01) !important;
         border: 1px solid rgba(59, 130, 246, 0.15) !important;
@@ -34,6 +36,49 @@ st.markdown("""
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(59, 130, 246, 0.05) !important;
         backdrop-filter: blur(5px);
     }
+
+    /* بنر خوش‌آمدگویی شیشه‌ای جدید */
+    .welcome-card {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(30, 41, 59, 0.7) 100%);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 25px;
+        padding: 30px;
+        margin: 15px 0 30px 0;
+        text-align: center;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
+    }
+    .status-badge {
+        background: rgba(34, 197, 94, 0.1);
+        color: #4ade80;
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-size: 13px;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 15px;
+        border: 1px solid rgba(34, 197, 94, 0.2);
+    }
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        background-color: #22c55e;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .welcome-title { color: #f8fafc; font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .welcome-subtitle { color: #94a3b8; font-size: 15px; line-height: 1.7; max-width: 90%; margin: 0 auto; }
+
+    /* استایل‌های پیام‌ها */
     .stChatMessage { background: rgba(255,255,255,0.04) !important; border-radius: 15px !important; margin-bottom: 10px !important; }
     .stButton>button { border-radius: 10px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: none; padding: 0.5rem 1rem; }
     
@@ -126,7 +171,22 @@ else:
         else:
             chat_container = st.container(height=580)
             if "messages" not in st.session_state: st.session_state.messages = []
+            
             with chat_container:
+                # --- بنر خوش‌آمدگویی ارتقا یافته ---
+                st.markdown("""
+                <div class="welcome-card">
+                    <div class="status-badge">
+                        <div class="pulse-dot"></div>
+                        دستیار آنلاین آماده پاسخگویی
+                    </div>
+                    <div class="welcome-title">سلام! من دستیار هوشمند دانشگاه هستم</div>
+                    <div class="welcome-subtitle">
+                        هر سوالی درباره قوانین آموزشی، امتحانات، چارت یا آیین‌نامه‌ها داری، بپرس تا در کسری از ثانیه جواب مستند بهت بدم.
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
                 for m in st.session_state.messages:
                     with st.chat_message(m["role"]): st.markdown(m["content"])
 
@@ -191,7 +251,6 @@ else:
                         with st.spinner("در حال استخراج اطلاعات..."):
                             txt, _ = extract_text_from_pdfs(files)
                             st.session_state.pdf_text = txt
-                            # اضافه شدن بخش استخراج جملات کلیدی برای کاربر
                             key_points = extract_important_sentences(txt)
                             st.success("تحلیل سند کامل شد.")
                             st.markdown("### 📌 نکات کلیدی سند شما:")
