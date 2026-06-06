@@ -2,8 +2,8 @@ from openai import OpenAI
 import re
 
 CLIENT = OpenAI(
-    base_url="https://api.gapgpt.app/v1",
-    api_key="sk-PtQ1lCzD6mxanRITn2dR4kXqGKLS4hmDEybQ4IDMFqiSFy8z"
+    base_url="https://api.avalapis.ir/v1",
+    api_key="aa-OsqPM4WiwThkqS49P1p6cLRv22XMIJ4yKmAEhMIrq5HKKbYL"
 )
 MODEL_NAME = "gpt-4o"
 
