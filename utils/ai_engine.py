@@ -2,8 +2,8 @@ from openai import OpenAI
 import re
 
 CLIENT = OpenAI(
-api_key = st.secrets["AVALAI_KEY"]
-
+    base_url="https://api.avalai.ir/v1",
+    api_key="aa-OsqPM4WiwThkqS49P1p6cLRv22XMIJ4yKmAEhMIrq5HKKbYL"
 )
 MODEL_NAME = "gpt-4o"
 
