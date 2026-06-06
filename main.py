@@ -1,4 +1,12 @@
 import streamlit as st
+
+# تست وجود کلید
+if "OPENROUTER_API_KEY" not in st.secrets:
+    st.error("خطا: کلید OPENROUTER_API_KEY در تنظیمات Secrets یافت نشد!")
+    st.write("کلیدهای موجود:", list(st.secrets.keys()))
+else:
+    st.success("کلید با موفقیت شناسایی شد.")
+
 import pandas as pd
 import database as db
 import datetime
