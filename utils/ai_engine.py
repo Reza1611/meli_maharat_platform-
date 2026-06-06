@@ -2,8 +2,8 @@ from openai import OpenAI
 import re
 
 CLIENT = OpenAI(
-  base_url="https://openrouter.ai/api/v1",
-  api_key=st.secrets["OPENROUTER_API_KEY"],
+    base_url="https://api.avalai.ir/v1",
+    api_key="aa-OsqPM4WiwThkqS49P1p6cLRv22XMIJ4yKmAEhMIrq5HKKbYL"
 )
 MODEL_NAME = "gpt-4o"
 
