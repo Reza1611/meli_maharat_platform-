@@ -7,9 +7,9 @@ from utils.ai_engine import generate_chat_response, extract_important_sentences
 from utils.ai_engine import test_api_key
 
 # چک کردن کلید API
-if not test_api_key():
-    st.error("❌ اتصال به سرویس هوش مصنوعی برقرار نشد یا API Key معتبر نیست.")
-    st.stop()
+#if not test_api_key():
+   # st.error("❌ اتصال به سرویس هوش مصنوعی برقرار نشد یا API Key معتبر نیست.")
+   # st.stop()
 
 # --- تنظیمات سیستمی ---
 MAX_QUESTIONS_PER_DAY = 20
