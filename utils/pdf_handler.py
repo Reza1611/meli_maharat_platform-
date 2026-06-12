@@ -11,5 +11,5 @@ def extract_text_from_pdfs(uploaded_files):
                 full_text += page.get_text()
             doc.close()
         except Exception as e:
-            full_text += f"\n[خطا در فایل {uploaded_file.name}]\n"
+            full_text += f" [Error in {uploaded_file.name}] "
     return full_text, file_names
