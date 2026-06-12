@@ -1,22 +1,15 @@
-import fitz
+import fitz  # PyMuPDF
 
 def extract_text_from_pdfs(uploaded_files):
     full_text = ""
     file_names = []
-
     for uploaded_file in uploaded_files:
         file_names.append(uploaded_file.name)
         try:
-            # استفاده از getvalue برای پایداری بیشتر در سرور
-            pdf_bytes = uploaded_file.getvalue() 
-            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
             for page in doc:
-                text = page.get_text()
-                if text:
-                    full_text += text
+                full_text += page.get_text()
             doc.close()
         except Exception as e:
-            full_text += f"\n[خطا: {str(e)}]\n"
-
-    return full_text.strip(), file_names
+            full_text += f"\n[خطا در فایل {uploaded_file.name}]\n"
+    return full_text, file_names
