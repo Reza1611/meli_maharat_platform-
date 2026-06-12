@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import fitz
 
 def extract_text_from_pdfs(uploaded_files):
     full_text = ""
