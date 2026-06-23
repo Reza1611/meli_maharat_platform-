@@ -9,7 +9,7 @@ import time
 # ---------------------------
 CLIENT = OpenAI(
     base_url="https://api.gapgpt.app/v1",
-    api_key="sk-k4ZiAJxRmxia4xD0rDb2cX3NAU9WAFp0X4cUHnzjn3lkGmUU"
+    api_key="sk-6ebjegsf6zWO1DCFuqzFoNsaarZ0M9azaxyofEuDR99Fz8fd"
 )
 
 MODEL_NAME = "gpt-4o"
